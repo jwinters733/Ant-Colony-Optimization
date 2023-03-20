@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class antBehaviour : MonoBehaviour
@@ -8,6 +9,8 @@ public class antBehaviour : MonoBehaviour
 
     private List<GameObject> targets = new List<GameObject>();
     private List<GameObject> visitedTargets = new List<GameObject>();
+    private List<GameObject> returnPath = new List<GameObject>();
+
     private GameObject currentTarget = null;
     private GameObject lastTarget = null;
     private bool hasFood;
@@ -45,7 +48,7 @@ public class antBehaviour : MonoBehaviour
                 currentTarget = target;
             }
         }
-
+        returnPath.Add(currentTarget);
         findNewTarget();
     }
 
@@ -71,51 +74,86 @@ public class antBehaviour : MonoBehaviour
     void findNewTarget()
     {
         lastTarget = currentTarget;
-
-        // Find a new target
-        List<GameObject> weightedTargets = new List<GameObject>();
-        float totalWeight = 0f;
-        foreach (GameObject target in targets)
+        if (hasFood)
         {
-            if (visitedTargets.Contains(target) || target.GetComponent<targetWeight>().getDeadEnd())
-            {
-                continue; // Skip targets that have already been visited
-            }
-            float distance = Vector3.Distance(transform.position, target.transform.position);
-            if (distance <= 1.30f && CanSeeTarget(target))
-            {
-                float weight = target.GetComponent<targetWeight>().GetPheromoneLevel();
-                weight = Mathf.Clamp(weight, 0f, 1f); // Ensure weight is between 0 and 1
-                weight = 1 - weight; // Invert the weight so that higher pheromone levels are preferred
-                weightedTargets.Add(target);
-                totalWeight += weight;
-            }
+            findReturnTarget();
         }
-        if (weightedTargets.Count > 0)
+        else
         {
-            float randomValue = Random.Range(0f, totalWeight);
-            float cumulativeWeight = 0f;
-            foreach (GameObject target in weightedTargets)
+            // Find a new target
+            List<GameObject> weightedTargets = new List<GameObject>();
+            float totalWeight = 0f;
+            foreach (GameObject target in targets)
             {
-                float weight = target.GetComponent<targetWeight>().GetPheromoneLevel();
-                weight = Mathf.Clamp(weight, 0f, 1f); // Ensure weight is between 0 and 1
-                weight = 1 - weight; // Invert the weight so that higher pheromone levels are preferred
-                cumulativeWeight += weight;
-                if (cumulativeWeight >= randomValue)
+                if (visitedTargets.Contains(target) || target.GetComponent<targetWeight>().getDeadEnd())
                 {
-                    currentTarget = target;
-                    break;
+                    continue; // Skip targets that have already been visited and that are dead ends
+                }
+                float distance = Vector3.Distance(transform.position, target.transform.position);
+                if (distance <= 1.30f && CanSeeTarget(target))
+                {
+                    float weight = target.GetComponent<targetWeight>().GetPheromoneLevel();
+                    weight = Mathf.Clamp(weight, 0f, 1f); // Ensure weight is between 0 and 1
+                    weight = 1 - weight; // Invert the weight so that higher pheromone levels are preferred
+                    weightedTargets.Add(target);
+                    totalWeight += weight;
                 }
             }
-        } else if (lastTarget != null && CanSeeTarget(lastTarget))
-        {
-            currentTarget.GetComponent<targetWeight>().foundDeadEnd();
-            currentTarget = lastTarget;
-            visitedTargets.Clear();
+            if (weightedTargets.Count > 0)
+            {
+                float randomValue = Random.Range(0f, totalWeight);
+                float cumulativeWeight = 0f;
+                foreach (GameObject target in weightedTargets)
+                {
+                    float weight = target.GetComponent<targetWeight>().GetPheromoneLevel();
+                    weight = Mathf.Clamp(weight, 0f, 1f); // Ensure weight is between 0 and 1
+                    weight = 1 - weight; // Invert the weight so that higher pheromone levels are preferred
+                    cumulativeWeight += weight;
+                    if (cumulativeWeight >= randomValue)
+                    {
+                        currentTarget = target;
+                        break;
+                    }
+                }
+            }
+            else if (lastTarget != null)
+            {
+                currentTarget.GetComponent<targetWeight>().foundDeadEnd();
+                if (lastTarget.GetComponent<targetWeight>().getDeadEnd() == false)
+                {
+                    currentTarget = lastTarget;
+                }
+                else
+                {
+                    foreach (GameObject target in targets)
+                    {
+                        float distance = Vector3.Distance(transform.position, target.transform.position);
+                        if (distance <= 1.30f && CanSeeTarget(target))
+                        {
+                            weightedTargets.Add(target);
+                        }
+                    }
+                    int randomTarget = Random.Range(0, weightedTargets.Count);
+                    currentTarget = weightedTargets[randomTarget];
+                }
+                visitedTargets.Clear();
+            }
         }
-
         // Mark the current target as visited
         visitedTargets.Add(currentTarget);
+    }
+
+    void findReturnTarget()
+    {
+        if (returnPath.Last().GetComponent<targetWeight>().getDeadEnd() == false)
+        {
+            currentTarget = returnPath.Last();
+            returnPath.RemoveAt(returnPath.Count-1);
+        } else 
+        {
+            returnPath.RemoveAt(returnPath.Count-1);
+            findReturnTarget();
+        }
     }
 
     bool CanSeeTarget(GameObject target)
@@ -134,7 +172,11 @@ public class antBehaviour : MonoBehaviour
 
     void visitTarget()
     {
-        // Call visitPheromones() on the current target
+        if (hasFood == false)
+        {
+            returnPath.Add(currentTarget);
+        }
+
         targetWeight targetWeightScript = currentTarget.GetComponent<targetWeight>();
 
         if (currentTarget.CompareTag("food"))
