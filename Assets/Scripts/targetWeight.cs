@@ -37,6 +37,11 @@ public class targetWeight : MonoBehaviour
         pheromoneLevel += 10*pheromoneStrength;
     }
 
+    public void foundFoodSource()
+    {
+        pheromoneLevel = 100;
+    }
+
     // function to get the current pheromone level
     public float GetPheromoneLevel()
     {

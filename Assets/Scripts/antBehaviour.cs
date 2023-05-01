@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using TMPro;
 
 public class antBehaviour : MonoBehaviour
 {
@@ -60,7 +61,7 @@ public class antBehaviour : MonoBehaviour
             transform.Translate(Vector3.forward * speed * Time.deltaTime);
 
             // Check if the ant has reached the current target
-            if (Vector3.Distance(transform.position, currentTarget.transform.position) < 0.1f)
+            if (Vector3.Distance(transform.position, currentTarget.transform.position) < 0.2f)
             {
                 visitTarget();
                 findNewTarget();
@@ -118,7 +119,10 @@ public class antBehaviour : MonoBehaviour
             }
             else if (lastTarget != null)
             {
-                currentTarget.GetComponent<targetWeight>().foundDeadEnd();
+                if (currentTarget.CompareTag("target"))
+                {
+                    currentTarget.GetComponent<targetWeight>().foundDeadEnd();
+                }
                 if (lastTarget.GetComponent<targetWeight>().getDeadEnd() == false)
                 {
                     currentTarget = lastTarget;
@@ -182,10 +186,15 @@ public class antBehaviour : MonoBehaviour
         if (currentTarget.CompareTag("food"))
         {
             hasFood = true;
+            targetWeightScript.foundFoodSource();
             visitedTargets.Clear();
         }
-        else if (currentTarget.CompareTag("colony"))
+        else if (currentTarget.CompareTag("colony") && hasFood)
         {
+            Canvas canvas = FindObjectOfType<Canvas>();
+            TextMeshProUGUI scoreText = canvas.transform.Find("ScoreText").GetComponent<TextMeshProUGUI>();
+            score myScore = scoreText.GetComponent<score>();
+            myScore.addToCounter();
             hasFood = false;
             visitedTargets.Clear();
         }
